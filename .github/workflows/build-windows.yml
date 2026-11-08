@@ -3,53 +3,40 @@ name: Build Engine Test Manager Pro
 on:
   workflow_dispatch:
   push:
-    paths:
-      - 'Engine_Test_Manager_Pro_2.1_SOURCE_READY.zip'
-      - '.github/workflows/build-windows.yml'
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Extract source
-        shell: pwsh
-        run: |
-          Expand-Archive -LiteralPath "Engine_Test_Manager_Pro_2.1_SOURCE_READY.zip" -DestinationPath "source" -Force
-          $project = Get-ChildItem source -Recurse -Filter pubspec.yaml | Select-Object -First 1
-          if (-not $project) { throw "pubspec.yaml not found" }
-          "PROJECT_DIR=$($project.Directory.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
 
-      - name: Enable Windows
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Enable Windows support
         run: flutter create --platforms=windows .
 
       - name: Install dependencies
-        working-directory: ${{ env.PROJECT_DIR }}
         run: flutter pub get
 
-      - name: Analyze
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Analyze project
         run: flutter analyze
 
-      - name: Build Windows
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Build Windows application
         run: flutter build windows --release
 
-      - name: Package
+      - name: Package application
         shell: pwsh
         run: |
-          Compress-Archive -Path "$env:PROJECT_DIR/build/windows/x64/runner/Release/*" -DestinationPath "Engine-Test-Manager-Pro-Windows.zip" -Force
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "Engine-Test-Manager-Pro-Windows.zip" -Force
 
-      - name: Upload
+      - name: Upload Windows package
         uses: actions/upload-artifact@v4
         with:
           name: Engine-Test-Manager-Pro-Windows
