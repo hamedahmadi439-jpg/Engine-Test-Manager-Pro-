@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:crypto/crypto.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
-import 'package:sqflite_common/sqlite_api.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 const bg = Color(0xFF090D13);
@@ -285,7 +285,6 @@ class _MyAppState extends State<MyApp> {
         ),
         cardColor: panel,
         dividerColor: panel2,
-        fontFamily: 'Segoe UI',
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: panel2,
@@ -297,7 +296,7 @@ class _MyAppState extends State<MyApp> {
       ),
       builder: (c, w) {
         return Directionality(
-          textDirection: TextDirection.rtl,
+          textDirection: ui.TextDirection.rtl,
           child: w ?? const SizedBox.shrink(),
         );
       },
@@ -336,6 +335,8 @@ class _LoginState extends State<Login> {
   Future<void> go() async {
     final x = await DB.instance.login(u.text, pw.text);
 
+    if (!mounted) return;
+
     if (x == null) {
       setState(() {
         error = 'نام کاربری یا رمز اشتباه است';
@@ -343,6 +344,13 @@ class _LoginState extends State<Login> {
     } else {
       widget.onLogin(x);
     }
+  }
+
+  @override
+  void dispose() {
+    u.dispose();
+    pw.dispose();
+    super.dispose();
   }
 
   @override
@@ -457,10 +465,12 @@ class _ShellState extends State<Shell> {
   }
 
   Future<void> load() async {
-    shifts = await DB.instance.shifts();
+    final result = await DB.instance.shifts();
 
     if (mounted) {
-      setState(() {});
+      setState(() {
+        shifts = result;
+      });
     }
   }
 
@@ -773,6 +783,9 @@ class Dashboard extends StatelessWidget {
     if (ok != true ||
         doc.text.trim().isEmpty ||
         op.text.trim().isEmpty) {
+      doc.dispose();
+      date.dispose();
+      op.dispose();
       return;
     }
 
@@ -781,6 +794,10 @@ class Dashboard extends StatelessWidget {
       date.text,
       op.text,
     );
+
+    doc.dispose();
+    date.dispose();
+    op.dispose();
 
     refresh();
 
@@ -900,12 +917,14 @@ class _ShiftPageState extends State<ShiftPage> {
   }
 
   Future<void> load() async {
-    rows = await DB.instance.engines(
+    final result = await DB.instance.engines(
       widget.shift['id'] as int,
     );
 
     if (mounted) {
-      setState(() {});
+      setState(() {
+        rows = result;
+      });
     }
   }
 
@@ -1166,6 +1185,10 @@ class _ShiftPageState extends State<ShiftPage> {
       ),
     );
 
+    no.dispose();
+    err.dispose();
+    notes.dispose();
+
     if (d == null || '${d['engine_no']}'.isEmpty) {
       return;
     }
@@ -1284,6 +1307,7 @@ class _ShiftPageState extends State<ShiftPage> {
     );
 
     final n = int.tryParse(t.text);
+    t.dispose();
 
     if (yes == true &&
         n != null &&
@@ -1353,10 +1377,12 @@ class _UsersState extends State<Users> {
   }
 
   Future<void> load() async {
-    data = await DB.instance.users();
+    final result = await DB.instance.users();
 
     if (mounted) {
-      setState(() {});
+      setState(() {
+        data = result;
+      });
     }
   }
 
@@ -1525,5 +1551,9 @@ class _UsersState extends State<Users> {
         }
       }
     }
+
+    name.dispose();
+    user.dispose();
+    pw.dispose();
   }
 }
