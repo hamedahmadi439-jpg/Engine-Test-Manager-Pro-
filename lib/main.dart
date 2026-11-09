@@ -364,7 +364,7 @@ class _LoginState extends State<Login> {
             color: panel,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: gold.withOpacity(.4),
+              color: gold.withValues(alpha: .4),
             ),
           ),
           child: Column(
@@ -561,7 +561,7 @@ class _ShellState extends State<Shell> {
   Widget nav(int i, IconData icon, String title) {
     return ListTile(
       selected: tab == i,
-      selectedTileColor: gold.withOpacity(.13),
+      selectedTileColor: gold.withValues(alpha: .13),
       leading: Icon(
         icon,
         color: tab == i ? gold : muted,
@@ -1050,7 +1050,7 @@ class _ShiftPageState extends State<ShiftPage> {
       child: ListTile(
         dense: true,
         leading: CircleAvatar(
-          backgroundColor: gold.withOpacity(.15),
+          backgroundColor: gold.withValues(alpha: .15),
           child: Text(
             '${r['row_no']}',
             style: const TextStyle(color: gold),
@@ -1129,7 +1129,7 @@ class _ShiftPageState extends State<ShiftPage> {
                   ),
                 ),
                 DropdownButtonFormField<String>(
-                  value: result,
+                  initialValue: result,
                   decoration: const InputDecoration(
                     labelText: 'نتیجه',
                   ),
@@ -1188,6 +1188,10 @@ class _ShiftPageState extends State<ShiftPage> {
     no.dispose();
     err.dispose();
     notes.dispose();
+
+    // The dialog is asynchronous; verify this page is still mounted
+    // before opening another dialog or using its BuildContext.
+    if (!mounted) return;
 
     if (d == null || '${d['engine_no']}'.isEmpty) {
       return;
@@ -1490,7 +1494,7 @@ class _UsersState extends State<Users> {
                   ),
                 ),
                 DropdownButtonFormField<String>(
-                  value: role,
+                  initialValue: role,
                   items: const [
                     DropdownMenuItem(
                       value: 'admin',
