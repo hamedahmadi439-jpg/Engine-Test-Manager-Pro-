@@ -1,11 +1,9 @@
 name: engine_test_manager
-description: Engine Test Manager Pro offline Windows desktop application.
+description: Engine Test Manager Pro 2.2 offline Windows desktop application.
 publish_to: 'none'
-version: 2.1.0+2
-
+version: 2.2.0+3
 environment:
   sdk: '>=3.3.0 <4.0.0'
-
 dependencies:
   flutter:
     sdk: flutter
@@ -13,11 +11,11 @@ dependencies:
   path: ^1.9.0
   intl: ^0.19.0
   crypto: ^3.0.6
-
+  window_manager: ^0.4.3
+  local_notifier: ^0.1.6
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-
 flutter:
   uses-material-design: true
