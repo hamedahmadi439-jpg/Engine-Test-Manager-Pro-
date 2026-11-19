@@ -7,6 +7,8 @@ import 'package:crypto/crypto.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:local_notifier/local_notifier.dart';
 
 const bg = Color(0xFF090D13);
 const panel = Color(0xFF151C26);
@@ -33,8 +35,25 @@ Future<void> main() async {
     databaseFactory = databaseFactoryFfi;
   }
 
+  if (Platform.isWindows) {
+    await windowManager.ensureInitialized();
+    const windowOptions = WindowOptions(
+      size: Size(1280, 820),
+      minimumSize: Size(980, 650),
+      center: true,
+      title: 'Engine Test Manager Pro 2.2',
+    );
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+      await windowManager.setAlwaysOnTop(true);
+    });
+    await localNotifier.setup(
+      appName: 'Engine Test Manager Pro',
+      shortcutPolicy: ShortcutPolicy.requireCreate,
+    );
+  }
   await DB.instance.init();
-
   runApp(const MyApp());
 }
 
@@ -384,7 +403,7 @@ class _LoginState extends State<Login> {
                 ),
               ),
               const Text(
-                'PRO 2.1',
+                'PRO 2.2',
                 style: TextStyle(
                   color: gold,
                   letterSpacing: 4,
@@ -800,7 +819,14 @@ class Dashboard extends StatelessWidget {
     op.dispose();
 
     refresh();
-
+    if (Platform.isWindows) {
+      try {
+        LocalNotification(
+          title: 'شیفت جدید ایجاد شد',
+          body: 'سند ${doc.text} برای اپراتور ${op.text}',
+        ).show();
+      } catch (_) {}
+    }
     final s = (await DB.instance.shifts()).firstWhere(
       (e) => e['id'] == id,
     );
@@ -906,7 +932,32 @@ class ShiftPage extends StatefulWidget {
 class _ShiftPageState extends State<ShiftPage> {
   List<Map<String, Object?>> rows = [];
 
+  final TextEditingController _scanController = TextEditingController();
+  final FocusNode _scanFocus = FocusNode();
+
   String q = '';
+
+  @override
+  void dispose() {
+    _scanController.dispose();
+    _scanFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitScannedBarcode(String value) async {
+    final code = value.trim();
+    if (code.isEmpty || closed || rows.length >= 80) {
+      _scanController.clear();
+      _scanFocus.requestFocus();
+      return;
+    }
+    _scanController.clear();
+    await edit(initialBarcode: code);
+    if (mounted) {
+      _scanController.clear();
+      _scanFocus.requestFocus();
+    }
+  }
 
   bool get closed => widget.shift['status'] == 'بسته';
 
@@ -991,12 +1042,27 @@ class _ShiftPageState extends State<ShiftPage> {
                 ),
                 const SizedBox(width: 8),
                 if (!closed)
+                  SizedBox(
+                    width: 300,
+                    child: TextField(
+                      controller: _scanController,
+                      focusNode: _scanFocus,
+                      autofocus: true,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (value) => _submitScannedBarcode(value),
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.qr_code_scanner),
+                        labelText: 'اسکن بارکد بعدی',
+                        hintText: 'اسکنر را آماده کنید',
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                if (!closed)
                   FilledButton.icon(
-                    onPressed: rows.length >= 80
-                        ? null
-                        : () => edit(),
-                    icon: const Icon(Icons.qr_code_scanner),
-                    label: const Text('ثبت / اسکن موتور'),
+                    onPressed: rows.length >= 80 ? null : () => edit(),
+                    icon: const Icon(Icons.edit_note),
+                    label: const Text('ثبت دستی'),
                   ),
               ],
             ),
@@ -1094,9 +1160,10 @@ class _ShiftPageState extends State<ShiftPage> {
 
   Future<void> edit({
     Map<String, Object?>? row,
+    String initialBarcode = '',
   }) async {
     final no = TextEditingController(
-      text: '${row?['engine_no'] ?? ''}',
+      text: row?['engine_no']?.toString() ?? initialBarcode,
     );
 
     final err = TextEditingController(
@@ -1203,28 +1270,41 @@ class _ShiftPageState extends State<ShiftPage> {
           r['id'] != row?['id'],
     );
 
+    Map<String, Object?>? duplicateRow;
     if (duplicate) {
-      final yes = await showDialog<bool>(
+      duplicateRow = rows.firstWhere(
+        (r) => r['engine_no'] == d['engine_no'] && r['id'] != row?['id'],
+      );
+      final choice = await showDialog<String>(
         context: context,
         builder: (x) => AlertDialog(
-          title: const Text('شماره تکراری'),
-          content: const Text(
-            'این شماره قبلاً در همین فرم ثبت شده؛ تست مجدد ثبت شود؟',
-          ),
+          title: const Text('بارکد تکراری'),
+          content: Text('شماره ${d['engine_no']} قبلاً در این فرم ثبت شده است.'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(x, false),
-              child: const Text('لغو'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(x, true),
-              child: const Text('ثبت مجدد'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(x, 'rescan'),
+              child: const Text('ثبت ازنو')),
+            OutlinedButton(onPressed: () => Navigator.pop(x, 'replace'),
+              child: const Text('جایگزینی با شماره قبلی')),
+            FilledButton(onPressed: () => Navigator.pop(x, 'again'),
+              child: const Text('ثبت مجددا')),
           ],
         ),
       );
-
-      if (yes != true) return;
+      if (choice == null || choice == 'rescan') return;
+      if (choice == 'replace') {
+        final replacement = <String, Object?>{
+          'shift_id': widget.shift['id'],
+          'row_no': duplicateRow!['row_no'],
+          ...d,
+          'created_at': nowStamp(),
+        };
+        await DB.instance.update(duplicateRow!['id'] as int, replacement);
+        await load();
+        _notify('نتیجه تست جایگزین شد',
+          'رکورد قبلی بارکد ${d['engine_no']} به‌روزرسانی شد.');
+        return;
+      }
+      // 'again' creates a new row with the same barcode.
     }
 
     final used = rows
@@ -1252,6 +1332,20 @@ class _ShiftPageState extends State<ShiftPage> {
     }
 
     await load();
+    _notify(row == null ? 'موتور ثبت شد' : 'رکورد ویرایش شد',
+      'شماره موتور: ${d['engine_no']}');
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scanFocus.requestFocus();
+      });
+    }
+  }
+
+  void _notify(String title, String body) {
+    if (!Platform.isWindows) return;
+    try {
+      LocalNotification(title: title, body: body).show();
+    } catch (_) {}
   }
 
   Future<void> remove(Map<String, Object?> r) async {
