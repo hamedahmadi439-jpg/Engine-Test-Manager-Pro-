@@ -1,43 +1,67 @@
-name: Build Engine Test Manager Pro
+name: Build Engine Test Manager Pro 2.2 (Windows)
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [ main, master ]
+    paths:
+      - "**"
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
-      - name: Enable Windows support
-        run: flutter create --platforms=windows .
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Generate Windows runner
+        run: flutter create --platforms=windows --project-name engine_test_manager .
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Analyze project
+      - name: Analyze source
         run: flutter analyze
 
-      - name: Build Windows application
+      - name: Build Windows release
         run: flutter build windows --release
 
-      - name: Package application
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Compile installer
         shell: pwsh
         run: |
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "Engine-Test-Manager-Pro-Windows.zip" -Force
+          New-Item -ItemType Directory -Force -Path Output | Out-Null
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
 
-      - name: Upload Windows package
+      - name: Package portable ZIP
+        shell: pwsh
+        run: |
+          $output = "build/windows/x64/runner/Release"
+          if (!(Test-Path "$output/engine_test_manager.exe")) { throw "Windows executable missing." }
+          Compress-Archive -Path "$output/*" -DestinationPath "Engine-Test-Manager-Pro-2.2-Portable.zip" -Force
+
+      - name: Upload installer and portable build
         uses: actions/upload-artifact@v4
         with:
-          name: Engine-Test-Manager-Pro-Windows
-          path: Engine-Test-Manager-Pro-Windows.zip
+          name: Engine-Test-Manager-Pro-2.2-Windows
+          path: |
+            Output/Engine-Test-Manager-Pro-2.2-Setup.exe
+            Engine-Test-Manager-Pro-2.2-Portable.zip
+          if-no-files-found: error
