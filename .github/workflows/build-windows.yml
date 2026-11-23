@@ -1,4 +1,4 @@
-name: Build Engine Test Manager Pro 2.2 (Windows)
+name: Build Engine Test Manager Pro 2.3 (Windows)
 
 on:
   workflow_dispatch:
@@ -29,21 +29,17 @@ jobs:
         run: flutter config --enable-windows-desktop
 
       - name: Generate Windows runner
-        run: flutter create --platforms=windows --project-name engine_test_manager --no-pub .
+        run: flutter create --platforms=windows --project-name engine_test_manager .
 
-      - name: Remove generated test files
+      - name: Install background barcode hook into Windows runner
         shell: pwsh
-        run: |
-          if (Test-Path "test") {
-            Remove-Item "test" -Recurse -Force
-          }
+        run: ./tool/patch_windows_hook.ps1
 
       - name: Install dependencies
         run: flutter pub get
 
       - name: Analyze source
-        continue-on-error: true
-        run: flutter analyze lib
+        run: flutter analyze
 
       - name: Build Windows release
         run: flutter build windows --release
@@ -65,18 +61,16 @@ jobs:
         shell: pwsh
         run: |
           $output = "build/windows/x64/runner/Release"
-
           if (!(Test-Path "$output/engine_test_manager.exe")) {
             throw "Windows executable missing."
           }
-
-          Compress-Archive -Path "$output/*" -DestinationPath "Engine-Test-Manager-Pro-2.2-Portable.zip" -Force
+          Compress-Archive -Path "$output/*" -DestinationPath "Engine-Test-Manager-Pro-2.3-Portable.zip" -Force
 
       - name: Upload installer and portable build
         uses: actions/upload-artifact@v4
         with:
-          name: Engine-Test-Manager-Pro-2.2-Windows
+          name: Engine-Test-Manager-Pro-2.3-Windows
           path: |
-            Output/Engine-Test-Manager-Pro-2.2-Setup.exe
-            Engine-Test-Manager-Pro-2.2-Portable.zip
+            Output/Engine-Test-Manager-Pro-2.3-Setup.exe
+            Engine-Test-Manager-Pro-2.3-Portable.zip
           if-no-files-found: error
