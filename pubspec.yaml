@@ -1,7 +1,7 @@
 name: engine_test_manager
-description: Engine Test Manager Pro 2.2 offline Windows desktop application.
+description: Engine Test Manager Pro 2.3 offline Windows desktop application.
 publish_to: 'none'
-version: 2.2.0+3
+version: 2.3.0+4
 environment:
   sdk: '>=3.3.0 <4.0.0'
 dependencies:
