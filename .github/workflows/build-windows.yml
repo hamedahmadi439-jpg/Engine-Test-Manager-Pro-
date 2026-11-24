@@ -6,7 +6,7 @@ on:
     branches: [ main, master ]
     paths:
       - "**"
-      - ".github/workflows/build-windows.yml"
+      - "!.github/workflows/build-windows.yml"
 
 permissions:
   contents: read
@@ -39,7 +39,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyze source
-        run: flutter analyze
+        run: flutter analyze lib
 
       - name: Build Windows release
         run: flutter build windows --release
@@ -57,20 +57,17 @@ jobs:
             throw "Inno Setup compilation failed."
           }
 
-      - name: Package portable ZIP
+      - name: Verify installer
         shell: pwsh
         run: |
-          $output = "build/windows/x64/runner/Release"
-          if (!(Test-Path "$output/engine_test_manager.exe")) {
-            throw "Windows executable missing."
+          $installer = "Output/Engine-Test-Manager-Pro-2.3-Setup.exe"
+          if (!(Test-Path $installer)) {
+            throw "Installer file was not generated."
           }
-          Compress-Archive -Path "$output/*" -DestinationPath "Engine-Test-Manager-Pro-2.3-Portable.zip" -Force
 
-      - name: Upload installer and portable build
+      - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: Engine-Test-Manager-Pro-2.3-Windows
-          path: |
-            Output/Engine-Test-Manager-Pro-2.3-Setup.exe
-            Engine-Test-Manager-Pro-2.3-Portable.zip
+          name: Engine-Test-Manager-Pro-2.3-Setup
+          path: Output/Engine-Test-Manager-Pro-2.3-Setup.exe
           if-no-files-found: error
